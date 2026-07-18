@@ -1,0 +1,41 @@
+{
+  "name": "drive-time-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:push": "prisma db push",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:studio": "prisma studio",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.11.1",
+    "@types/leaflet": "^1.9.21",
+    "leaflet": "^1.9.4",
+    "next": "^15.3.5",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-leaflet": "^5.0.0",
+    "recharts": "^2.15.4"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
+    "@tailwindcss/postcss": "^4.1.11",
+    "@types/node": "^20.19.8",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "eslint": "^9.31.0",
+    "eslint-config-next": "^15.3.5",
+    "prisma": "^6.11.1",
+    "tailwindcss": "^4.1.11",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}

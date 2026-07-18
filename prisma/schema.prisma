@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Location {
+  id        String   @id @default(cuid())
+  label     String
+  address   String
+  isWork    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  originPairs      TrackedPair[] @relation("PairOrigin")
+  destinationPairs TrackedPair[] @relation("PairDestination")
+}
+
+model TrackedPair {
+  id                    String   @id @default(cuid())
+  originLocationId      String
+  originLocation        Location @relation("PairOrigin", fields: [originLocationId], references: [id], onDelete: Cascade)
+  destinationLocationId String
+  destinationLocation   Location @relation("PairDestination", fields: [destinationLocationId], references: [id], onDelete: Cascade)
+  active                Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  scheduleSlots PairScheduleSlot[]
+  measurements  Measurement[]
+
+  @@unique([originLocationId, destinationLocationId])
+}
+
+model PairScheduleSlot {
+  id            String      @id @default(cuid())
+  trackedPairId String
+  trackedPair   TrackedPair @relation(fields: [trackedPairId], references: [id], onDelete: Cascade)
+  /// Local time in HH:MM (24h), e.g. "07:30"
+  timeLocal     String
+  /// Comma-separated ISO weekdays: 1=Mon ... 7=Sun
+  daysOfWeek    String      @default("1,2,3,4,5")
+  timezone      String      @default("America/Los_Angeles")
+  active        Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  measurements  Measurement[]
+
+  @@unique([trackedPairId, timeLocal, daysOfWeek])
+}
+
+model Measurement {
+  id                   String            @id @default(cuid())
+  trackedPairId        String
+  trackedPair          TrackedPair       @relation(fields: [trackedPairId], references: [id], onDelete: Cascade)
+  pairScheduleSlotId   String?
+  pairScheduleSlot     PairScheduleSlot? @relation(fields: [pairScheduleSlotId], references: [id], onDelete: SetNull)
+  scheduledDepartureAt DateTime
+  durationSeconds      Int?
+  durationInTrafficSeconds Int?
+  distanceMeters     Int?
+  routePolyline        String?
+  routeTrafficJson     String?
+  status               String
+  errorMessage         String?
+  createdAt            DateTime          @default(now())
+
+  @@unique([trackedPairId, pairScheduleSlotId, scheduledDepartureAt])
+  @@index([trackedPairId, scheduledDepartureAt])
+  @@index([scheduledDepartureAt])
+}
