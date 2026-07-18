@@ -13,9 +13,20 @@ export function MeasurementBackLink({ returnTo }: { returnTo: MeasurementReturnP
     <button
       type="button"
       onClick={() => {
-        if (window.history.length > 1) {
-          router.back();
-          return;
+        try {
+          const referrer = document.referrer;
+          if (referrer) {
+            const refUrl = new URL(referrer);
+            if (
+              window.history.length > 1 &&
+              refUrl.origin === window.location.origin
+            ) {
+              router.back();
+              return;
+            }
+          }
+        } catch {
+          // Ignore invalid referrer values.
         }
         router.push(returnTo);
       }}

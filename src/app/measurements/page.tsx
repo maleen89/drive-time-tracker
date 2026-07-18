@@ -20,23 +20,31 @@ export default async function MeasurementsPage() {
     include: { originLocation: true, destinationLocation: true },
   });
 
-  const measurementsByPair = await Promise.all(
-    pairs.map(async (pair) => {
-      const measurements = await prisma.measurement.findMany({
-        where: { trackedPairId: pair.id, status: "OK" },
-        orderBy: { scheduledDepartureAt: "asc" },
-        take: 200,
-        include: { pairScheduleSlot: true },
-      });
+  const pairIds = pairs.map((pair) => pair.id);
+  const allOkMeasurements =
+    pairIds.length === 0
+      ? []
+      : await prisma.measurement.findMany({
+          where: { trackedPairId: { in: pairIds }, status: "OK" },
+          orderBy: { scheduledDepartureAt: "asc" },
+        });
 
-      const chartData = measurements.map((m) => ({
-        label: formatDateTime(m.scheduledDepartureAt, DEFAULT_TIMEZONE),
-        minutes: Math.round((m.durationInTrafficSeconds ?? m.durationSeconds ?? 0) / 60),
-      }));
+  const measurementsByPairId = new Map<string, typeof allOkMeasurements>();
+  for (const measurement of allOkMeasurements) {
+    const existing = measurementsByPairId.get(measurement.trackedPairId) ?? [];
+    existing.push(measurement);
+    measurementsByPairId.set(measurement.trackedPairId, existing);
+  }
 
-      return { pair, chartData };
-    }),
-  );
+  const measurementsByPair = pairs.map((pair) => {
+    const measurements = (measurementsByPairId.get(pair.id) ?? []).slice(-200);
+    const chartData = measurements.map((m) => ({
+      label: formatDateTime(m.scheduledDepartureAt, DEFAULT_TIMEZONE),
+      minutes: Math.round((m.durationInTrafficSeconds ?? m.durationSeconds ?? 0) / 60),
+    }));
+
+    return { pair, chartData };
+  });
 
   const recent = await prisma.measurement.findMany({
     orderBy: { scheduledDepartureAt: "desc" },

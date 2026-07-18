@@ -4,7 +4,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Drive Time Tracker",
-  description: "Track Google Maps driving times between address pairs on a schedule",
+  description:
+    "Track commute drive times on a schedule with stored route snapshots and traffic history",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -2,6 +2,7 @@ import { runScheduledMeasurements } from "@/lib/cron-runner";
 import {
   addDaysInTimeZone,
   DEFAULT_TIMEZONE,
+  getSchedulerToleranceMinutes,
   getZonedParts,
   zonedDateTimeToUtc,
 } from "@/lib/time";
@@ -59,7 +60,8 @@ function stopBuiltinScheduler() {
 }
 
 async function tick() {
-  const result = await runScheduledMeasurements(new Date(), 5, false);
+  const toleranceMinutes = getSchedulerToleranceMinutes();
+  const result = await runScheduledMeasurements(new Date(), toleranceMinutes, false);
   if (result.created > 0 || result.errors > 0) {
     console.log("[scheduler]", new Date().toISOString(), result);
   }

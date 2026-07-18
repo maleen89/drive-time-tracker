@@ -5,7 +5,7 @@ import {
   DEFAULT_MORNING_SLOTS,
   defaultSlotsForPair,
 } from "@/lib/tracked-pairs";
-import { DEFAULT_WEEKDAYS, formatDaysOfWeek, parseDaysOfWeek } from "@/lib/time";
+import { DEFAULT_WEEKDAYS, DEFAULT_TIMEZONE, formatDaysOfWeek, parseDaysOfWeek } from "@/lib/time";
 
 const pairInclude = {
   originLocation: true,
@@ -17,7 +17,7 @@ function slotCreates(times: string[], daysOfWeek: string) {
   return times.map((timeLocal) => ({
     timeLocal,
     daysOfWeek,
-    timezone: "America/Los_Angeles",
+    timezone: DEFAULT_TIMEZONE,
     active: true,
   }));
 }

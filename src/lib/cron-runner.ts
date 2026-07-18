@@ -9,7 +9,6 @@ import {
   getCommuteDirection,
   pairAddresses,
   pairLabel,
-  type TrackedPairWithLocations,
 } from "@/lib/tracked-pairs";
 import {
   buildScheduledDepartureAt,
@@ -206,5 +205,3 @@ async function findExistingMeasurement(
     },
   });
 }
-
-export type { TrackedPairWithLocations };

@@ -1,5 +1,5 @@
-import type { CommuteDirection, CommutePeriod } from "@/lib/commute";
-import { DEFAULT_TIMEZONE, parseTimeLocal } from "@/lib/time";
+import type { CommuteDirection } from "@/lib/commute";
+import { DEFAULT_TIMEZONE } from "@/lib/time";
 
 export type LocationRecord = {
   id: string;
@@ -56,26 +56,6 @@ export function defaultSlotsForDirection(direction: CommuteDirection): string[] 
 
 export function defaultSlotsForPair(pair: TrackedPairWithLocations): string[] {
   return defaultSlotsForDirection(getCommuteDirection(pair));
-}
-
-export interface PairScheduleSlotInput {
-  id: string;
-  timeLocal: string;
-  daysOfWeek: string;
-  timezone: string;
-  active: boolean;
-  trackedPairId: string;
-}
-
-export function slotMatchesPeriod(
-  timeLocal: string,
-  period: CommutePeriod,
-): boolean {
-  const parsed = parseTimeLocal(timeLocal);
-  if (!parsed) return false;
-  const minutes = parsed.hours * 60 + parsed.minutes;
-  if (period === "morning") return minutes >= 7 * 60 && minutes <= 10 * 60;
-  return minutes >= 14 * 60 && minutes <= 18 * 60;
 }
 
 export function formatSlotList(times: string[]): string {

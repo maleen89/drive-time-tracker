@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runScheduledMeasurements } from "@/lib/cron-runner";
+import { getSchedulerToleranceMinutes } from "@/lib/time";
 
 export async function POST(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -16,7 +17,11 @@ export async function POST(request: NextRequest) {
   const force = request.nextUrl.searchParams.get("force") === "true";
 
   try {
-    const result = await runScheduledMeasurements(new Date(), 10, force);
+    const result = await runScheduledMeasurements(
+      new Date(),
+      getSchedulerToleranceMinutes(),
+      force,
+    );
     return NextResponse.json(result);
   } catch (error) {
     console.error("Cron run failed:", error);

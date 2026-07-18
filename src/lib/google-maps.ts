@@ -174,22 +174,3 @@ export async function fetchDrivingRoute(
     };
   }
 }
-
-/** @deprecated Use fetchDrivingRoute */
-export type DistanceMatrixResult = Omit<DrivingRouteResult, "routePolyline" | "routeTrafficJson">;
-
-/** @deprecated Use fetchDrivingRoute */
-export async function fetchDrivingDistance(
-  origin: string,
-  destination: string,
-  departureTime: Date,
-): Promise<DistanceMatrixResult> {
-  const route = await fetchDrivingRoute(origin, destination, departureTime);
-  return {
-    durationSeconds: route.durationSeconds,
-    durationInTrafficSeconds: route.durationInTrafficSeconds,
-    distanceMeters: route.distanceMeters,
-    status: route.status,
-    errorMessage: route.errorMessage,
-  };
-}

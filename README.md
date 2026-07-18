@@ -1,13 +1,14 @@
 # Drive Time Tracker
 
-Track Google Maps driving distance and duration between address pairs on a shared schedule. Built for comparing Bay Area commutes (e.g. neighborhood home buys vs. work).
+Track commute drive times between home and work on a schedule. Built for comparing Bay Area commutes (e.g. neighborhood home buys vs. work).
 
-## Features (v1)
+## Features
 
-- Manage origin → destination address pairs (both directions supported)
-- Shared schedule slots — all active pairs run at the same times
-- Automated measurements via built-in scheduler (local PC) or `/api/cron/run` (cloud)
-- Dashboard, history charts, route snapshots, and CSV export
+- **Setup** — manage locations and commute pairs (home ↔ work) with per-pair schedule slots and weekday rules
+- **Scheduled measurements** — Google Routes API lookups at configured departure times
+- **Route snapshots** — each measurement stores an encoded polyline and traffic intervals; detail pages render them with Leaflet (no extra routing API calls)
+- **Dashboard** — latest morning/evening drive times per home, next-run countdown, manual test runs
+- **History** — charts per pair, full measurement log, CSV export
 
 ## Quick start
 
@@ -27,21 +28,24 @@ cp .env.example .env
 
 Set:
 
-- `GOOGLE_MAPS_API_KEY` — from [Google Cloud Console](https://console.cloud.google.com/) with **Routes API** enabled
-- `ENABLE_BUILTIN_SCHEDULER=true` — automatic runs while the server is on (local PC)
-- `CRON_SECRET` — optional; only needed if an external service calls `/api/cron/run` (cloud deploy)
+- `GOOGLE_MAPS_API_KEY` — from [Google Cloud Console](https://console.cloud.google.com/) with **Routes API** enabled on the key
+- `ENABLE_BUILTIN_SCHEDULER=true` — automatic runs while the Next.js server is running (local PC)
+- `CRON_SECRET` — optional; required only if an external service calls `/api/cron/run`
 
 ### 3. Database
 
 ```bash
 npm run db:push
-npx tsx prisma/seed.ts
+npm run db:seed
 ```
 
 Seed creates:
 
-- **4 pairs** (Fremont & Dublin homes ↔ Work at 690 E Middlefield Ave, Mountain View)
-- **16 slots** — every 30 min from 7:00–10:00 and 14:00–18:00, Mon–Fri, Pacific time
+- **3 locations** — Work (Mountain View) + Fremont and Dublin homes
+- **4 tracked pairs** — morning home→work and afternoon work→home for each home
+- **64 schedule slots** — 7 morning times (7:00–10:00) and 9 afternoon times (14:00–18:00) per direction, Mon–Fri
+
+Your live database may have more homes/pairs if you've added them via Setup.
 
 ### 4. Run locally
 
@@ -53,35 +57,41 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Desktop shortcut (Windows)
 
-Double-click **`Start Drive Time Tracker.bat`** in the project folder to:
+Double-click **`Start Drive Time Tracker.bat`** in the project folder to start the dev server (if needed) and open the app in your browser.
 
-1. Start the dev server (opens a terminal window if it is not already running)
-2. Open the app in your browser
+Pin to desktop: right-click the `.bat` file → **Send to** → **Desktop (create shortcut)**.
 
-**Pin to desktop:** right-click `Start Drive Time Tracker.bat` → **Send to** → **Desktop (create shortcut)**. You can rename the shortcut and change its icon in the shortcut properties.
+The built-in scheduler starts when `ENABLE_BUILTIN_SCHEDULER=true` and the server is running (`npm run dev` or `npm start`).
 
-If the server is already running, double-clicking only opens the browser.
+## Pages
 
-The built-in scheduler starts automatically when `ENABLE_BUILTIN_SCHEDULER=true` in `.env`.
+| Route | Purpose |
+|-------|---------|
+| `/` | Dashboard — summary, next run, recent measurements |
+| `/setup` | Locations, commutes, per-pair schedules |
+| `/measurements` | History charts and full log |
+| `/measurements/[id]` | Route map snapshot + recent times for that pair |
 
-### 5. Automatic runs on this PC
+Legacy URLs `/pairs` and `/schedule` redirect to `/setup`.
 
-With these lines in `.env` (already enabled by default):
+## Automatic runs (local PC)
+
+With these lines in `.env`:
 
 ```
 ENABLE_BUILTIN_SCHEDULER=true
 SCHEDULER_INTERVAL_MINUTES=5
 ```
 
-the server checks your schedule every 5 minutes while `npm run dev` is running. No external cron service or Task Scheduler required.
+the server checks for matching schedule slots every 5 minutes, aligned to the clock in `DEFAULT_TIMEZONE`. Checks also run once immediately on startup to catch the current window.
 
-You should see `Built-in scheduler on` on the dashboard. Logs appear in the server terminal as `[scheduler]` when measurements are created.
+You should see **Built-in scheduler on** on the dashboard. Successful runs log `[scheduler]` in the server terminal.
 
 To disable automatic runs, set `ENABLE_BUILTIN_SCHEDULER=false`.
 
-### 6. Manual test run
+## Manual test run
 
-Click **Run morning** or **Run evening** on the dashboard.
+Click **Run morning** or **Run evening** on the dashboard (runs all active pairs in that direction now).
 
 Or via curl:
 
@@ -89,6 +99,8 @@ Or via curl:
 curl -X POST "http://localhost:3000/api/run-now?period=morning"
 curl -X POST "http://localhost:3000/api/run-now?period=afternoon"
 ```
+
+The API parameter is `afternoon` (evening commute / work→home).
 
 ## Scheduled production runs
 
@@ -99,22 +111,39 @@ POST https://your-app.example.com/api/cron/run
 Authorization: Bearer YOUR_CRON_SECRET
 ```
 
-Run **every 5 minutes** so each slot is caught within a few minutes after its scheduled time.
+Run **every 5 minutes** so each slot is caught within the tolerance window after its scheduled time.
 
 ## Google Cloud setup
 
 1. Create a project and enable billing
-2. Enable **Routes API** (replaces Distance Matrix for scheduled measurements)
-3. Create an API key
-4. Restrict the key (IP for server cron, or unrestricted for local dev only)
+2. Enable **Routes API**
+3. Create an API key and add **Routes API** to the key's allowed APIs (if using API restrictions)
+4. Restrict the key appropriately (IP for server cron; unrestricted only for local dev)
 
-Each scheduled measurement stores an encoded route polyline and traffic intervals in the database. History detail pages render that snapshot with Leaflet/OpenStreetMap — no extra routing API calls when viewing past routes.
+Each measurement stores an encoded route polyline and traffic intervals. History detail pages render that snapshot with Leaflet/OpenStreetMap — no routing API call when viewing past routes.
 
 ## API usage estimate
 
-4 pairs × 16 slots × ~22 weekdays ≈ **1,400 Routes API calls/month** — typically within Google's free tier for compute routes.
+Example with seed data (2 homes, 4 pairs):
+
+- 2 morning pairs × 7 slots + 2 evening pairs × 9 slots = **32 Routes API calls/day**
+- ~22 weekdays ≈ **700 calls/month**
+
+Scale linearly with homes and active slots. Typical usage stays within Google's Routes API free tier for personal use.
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Development server |
+| `npm run build` | Production build |
+| `npm run start` | Production server |
+| `npm run lint` | ESLint |
+| `npm run db:push` | Apply Prisma schema to SQLite |
+| `npm run db:seed` | Reset and seed demo data |
+| `npm run db:studio` | Open Prisma Studio |
 
 ## v2 ideas
 
-- Per-pair schedule overrides
-- Threshold alerts
+- Threshold alerts when drive time spikes
+- Email or push notifications

@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { DEFAULT_AFTERNOON_SLOTS, DEFAULT_MORNING_SLOTS } from "../src/lib/tracked-pairs";
+import { DEFAULT_TIMEZONE } from "../src/lib/time";
 
 const prisma = new PrismaClient();
 
@@ -65,7 +66,7 @@ async function main() {
           create: def.slots.map((timeLocal) => ({
             timeLocal,
             daysOfWeek: "1,2,3,4,5",
-            timezone: "America/Los_Angeles",
+            timezone: DEFAULT_TIMEZONE,
             active: true,
           })),
         },

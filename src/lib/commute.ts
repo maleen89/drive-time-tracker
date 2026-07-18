@@ -3,11 +3,6 @@ import { getLocalTimeMinutes, parseTimeLocal, DEFAULT_TIMEZONE } from "@/lib/tim
 export type CommuteDirection = "to_work" | "from_work";
 export type CommutePeriod = "morning" | "afternoon";
 
-export const COMMUTE_DIRECTION_OPTIONS = [
-  { value: "to_work" as const, label: "Home → Work (morning slots)" },
-  { value: "from_work" as const, label: "Work → Home (afternoon slots)" },
-];
-
 const MORNING_START = 7 * 60;
 const MORNING_END = 10 * 60;
 const AFTERNOON_START = 14 * 60;

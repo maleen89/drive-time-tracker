@@ -8,6 +8,7 @@ import {
   addDaysInTimeZone,
   DEFAULT_TIMEZONE,
   formatDateTime,
+  getSchedulerToleranceMinutes,
   getZonedParts,
   parseDaysOfWeek,
   parseTimeLocal,
@@ -39,7 +40,7 @@ export interface NextScheduleRun {
 export function getNextScheduleRun(
   slots: ScheduleSlotInput[],
   now = new Date(),
-  toleranceMinutes = 5,
+  toleranceMinutes = getSchedulerToleranceMinutes(),
 ): NextScheduleRun | null {
   const activeSlots = slots.filter((slot) => slot.active);
   if (activeSlots.length === 0) return null;

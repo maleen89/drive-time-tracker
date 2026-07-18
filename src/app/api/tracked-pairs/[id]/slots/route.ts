@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { DEFAULT_WEEKDAYS, parseTimeLocal } from "@/lib/time";
+import { DEFAULT_WEEKDAYS, DEFAULT_TIMEZONE, parseTimeLocal } from "@/lib/time";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         trackedPairId,
         timeLocal: body.timeLocal.trim(),
         daysOfWeek,
-        timezone: "America/Los_Angeles",
+        timezone: DEFAULT_TIMEZONE,
         active: true,
       },
     });

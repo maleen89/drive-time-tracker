@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   formatCountdown,
@@ -23,9 +24,9 @@ export function NextRunCountdown({ nextRun }: NextRunCountdownProps) {
     return (
       <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
         No active schedule slots. Add times on the{" "}
-        <a href="/schedule" className="text-slate-900 underline">
-          Schedule
-        </a>{" "}
+        <Link href="/setup" className="text-slate-900 underline">
+          Setup
+        </Link>{" "}
         page.
       </div>
     );

@@ -1,4 +1,4 @@
-import { getCommuteDirection, homeLocation, pairLabel } from "@/lib/tracked-pairs";
+import { getCommuteDirection, homeLocation } from "@/lib/tracked-pairs";
 import { formatDateTime, formatDistance, formatDuration, DEFAULT_TIMEZONE } from "@/lib/time";
 
 type MeasurementSummary = {
@@ -65,5 +65,3 @@ export function formatMeasurementTooltip(measurement: MeasurementSummary | null)
 export function formatRowDistance(distanceMeters: number | null): string {
   return formatDistance(distanceMeters);
 }
-
-export { pairLabel };

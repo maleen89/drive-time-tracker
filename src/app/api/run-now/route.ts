@@ -1,23 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CommutePeriod } from "@/lib/commute";
-import { isBuiltinSchedulerEnabled } from "@/lib/builtin-scheduler";
 import { runScheduledMeasurements } from "@/lib/cron-runner";
+import { getSchedulerToleranceMinutes } from "@/lib/time";
 
 function parsePeriod(value: string | null): CommutePeriod | null {
   return value === "morning" || value === "afternoon" ? value : null;
 }
 
 export async function POST(request: NextRequest) {
-  if (!isBuiltinSchedulerEnabled()) {
-    return NextResponse.json(
-      {
-        error:
-          "Run now is only available in local PC mode (ENABLE_BUILTIN_SCHEDULER=true).",
-      },
-      { status: 403 },
-    );
-  }
-
   const period = parsePeriod(request.nextUrl.searchParams.get("period"));
   if (!period) {
     return NextResponse.json(
@@ -27,7 +17,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await runScheduledMeasurements(new Date(), 10, true, period);
+    const result = await runScheduledMeasurements(
+      new Date(),
+      getSchedulerToleranceMinutes(),
+      true,
+      period,
+    );
     return NextResponse.json(result);
   } catch (error) {
     console.error("Run now failed:", error);

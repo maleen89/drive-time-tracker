@@ -36,6 +36,15 @@ export function formatDaysOfWeekLabel(daysOfWeek: string): string {
     .join(", ");
 }
 
+export function getSchedulerToleranceMinutes(): number {
+  const interval = Number(process.env.SCHEDULER_INTERVAL_MINUTES ?? 5);
+  const configured = Number(process.env.SCHEDULER_TOLERANCE_MINUTES);
+  if (Number.isFinite(configured) && configured > 0) {
+    return configured;
+  }
+  return Number.isFinite(interval) && interval > 0 ? interval : 5;
+}
+
 export function formatDuration(seconds: number | null | undefined): string {
   if (seconds == null) return "—";
   const minutes = Math.round(seconds / 60);
@@ -55,10 +64,6 @@ export function parseTimeLocal(value: string): { hours: number; minutes: number 
   const match = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(value.trim());
   if (!match) return null;
   return { hours: Number(match[1]), minutes: Number(match[2]) };
-}
-
-export function formatTimeLocal(hours: number, minutes: number): string {
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
 interface ZonedParts {
