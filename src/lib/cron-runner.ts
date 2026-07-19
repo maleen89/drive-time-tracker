@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { fetchDrivingRoute } from "@/lib/google-maps";
 import {
   CommutePeriod,
@@ -147,20 +148,28 @@ async function recordMeasurement({
   const durationInTraffic =
     route.durationInTrafficSeconds ?? route.durationSeconds;
 
-  await prisma.measurement.create({
-    data: {
-      trackedPairId: pair.id,
-      pairScheduleSlotId: scheduleSlot?.id ?? null,
-      scheduledDepartureAt,
-      durationSeconds: route.durationSeconds,
-      durationInTrafficSeconds: durationInTraffic,
-      distanceMeters: route.distanceMeters,
-      routePolyline: route.routePolyline,
-      routeTrafficJson: route.routeTrafficJson,
-      status: route.status,
-      errorMessage: route.errorMessage,
-    },
-  });
+  try {
+    await prisma.measurement.create({
+      data: {
+        trackedPairId: pair.id,
+        pairScheduleSlotId: scheduleSlot?.id ?? null,
+        scheduledDepartureAt,
+        durationSeconds: route.durationSeconds,
+        durationInTrafficSeconds: durationInTraffic,
+        distanceMeters: route.distanceMeters,
+        routePolyline: route.routePolyline,
+        routeTrafficJson: route.routeTrafficJson,
+        status: route.status,
+        errorMessage: route.errorMessage,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      result.skipped += 1;
+      return;
+    }
+    throw error;
+  }
 
   if (route.status === "OK") {
     result.created += 1;
