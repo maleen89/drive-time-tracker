@@ -1,0 +1,6 @@
+# Replace YOUR_DOMAIN with a hostname that points at this VM's external IP.
+# Caddy will obtain a free Let's Encrypt certificate automatically.
+
+YOUR_DOMAIN {
+  reverse_proxy 127.0.0.1:3000
+}

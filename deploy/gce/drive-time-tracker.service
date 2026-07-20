@@ -1,0 +1,16 @@
+[Unit]
+Description=Drive Time Tracker
+After=network.target
+
+[Service]
+Type=simple
+User=dtt
+Group=dtt
+WorkingDirectory=/opt/drive-time-tracker
+EnvironmentFile=/etc/drive-time-tracker.env
+ExecStart=/usr/bin/node /opt/drive-time-tracker/.next/standalone/server.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

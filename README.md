@@ -131,6 +131,10 @@ Example with seed data (2 homes, 4 pairs):
 
 Scale linearly with homes and active slots. Typical usage stays within Google's Routes API free tier for personal use.
 
+## Deploy on GCP (always-on, free tier)
+
+See **[deploy/gce/README.md](deploy/gce/README.md)** for step-by-step instructions: e2-micro VM, HTTPS, site password, and optional data migration from your PC.
+
 ## Scripts
 
 | Command | Description |
