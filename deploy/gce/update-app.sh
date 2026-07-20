@@ -19,8 +19,10 @@ sudo -u "$APP_USER" bash -lc "cd '$APP_DIR' && npm ci && npm run build"
 
 # Standalone build layout: static assets must sit beside server.js
 rm -rf "$APP_DIR/.next/standalone/public" "$APP_DIR/.next/standalone/.next/static"
-cp -r "$APP_DIR/public" "$APP_DIR/.next/standalone/public"
-mkdir -p "$APP_DIR/.next/standalone/.next"
+mkdir -p "$APP_DIR/.next/standalone/public" "$APP_DIR/.next/standalone/.next"
+if [[ -d "$APP_DIR/public" ]]; then
+  cp -r "$APP_DIR/public/." "$APP_DIR/.next/standalone/public/"
+fi
 cp -r "$APP_DIR/.next/static" "$APP_DIR/.next/standalone/.next/static"
 
 systemctl restart drive-time-tracker
