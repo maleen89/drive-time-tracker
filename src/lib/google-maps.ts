@@ -1,4 +1,5 @@
 import type { RouteTrafficInterval, RouteTrafficSpeed } from "@/lib/route-traffic";
+import type { RouteWaypoint } from "@/lib/route-waypoints";
 
 export interface DrivingRouteResult {
   durationSeconds: number | null;
@@ -78,6 +79,7 @@ export async function fetchDrivingRoute(
   origin: string,
   destination: string,
   departureTime: Date,
+  waypoints: RouteWaypoint[] = [],
 ): Promise<DrivingRouteResult> {
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) {
@@ -94,7 +96,7 @@ export async function fetchDrivingRoute(
 
   const routesDepartureAt = resolveRoutesDepartureTime(departureTime);
 
-  const body = {
+  const body: Record<string, unknown> = {
     origin: { address: origin },
     destination: { address: destination },
     travelMode: "DRIVE",
@@ -102,6 +104,18 @@ export async function fetchDrivingRoute(
     departureTime: routesDepartureAt.toISOString(),
     extraComputations: ["TRAFFIC_ON_POLYLINE"],
   };
+
+  if (waypoints.length > 0) {
+    body.intermediates = waypoints.map((waypoint) => ({
+      location: {
+        latLng: {
+          latitude: waypoint.latitude,
+          longitude: waypoint.longitude,
+        },
+      },
+      via: true,
+    }));
+  }
 
   const fieldMask = [
     "routes.duration",

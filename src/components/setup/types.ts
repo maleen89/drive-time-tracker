@@ -15,6 +15,7 @@ export type PairSlotData = {
 export type TrackedPairData = {
   id: string;
   active: boolean;
+  routeWaypointsJson: string | null;
   originLocation: LocationData;
   destinationLocation: LocationData;
   scheduleSlots: PairSlotData[];

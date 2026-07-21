@@ -26,6 +26,8 @@ model TrackedPair {
   destinationLocationId String
   destinationLocation   Location @relation("PairDestination", fields: [destinationLocationId], references: [id], onDelete: Cascade)
   active                Boolean  @default(true)
+  /// JSON array of { latitude, longitude } pass-through points for Routes API
+  routeWaypointsJson    String?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 

@@ -11,6 +11,7 @@ import {
   pairAddresses,
   pairLabel,
 } from "@/lib/tracked-pairs";
+import { parseRouteWaypoints } from "@/lib/route-waypoints";
 import {
   buildScheduledDepartureAt,
   DEFAULT_TIMEZONE,
@@ -143,6 +144,7 @@ async function recordMeasurement({
     originAddress,
     destinationAddress,
     scheduledDepartureAt,
+    parseRouteWaypoints(pair.routeWaypointsJson),
   );
 
   const durationInTraffic =

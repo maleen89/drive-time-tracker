@@ -103,7 +103,7 @@ export default async function DashboardPage() {
                 </tr>
               ) : (
                 homeRows.map((row) => (
-                  <tr key={row.homeAddress} className="border-t border-slate-100">
+                  <tr key={row.homeId} className="border-t border-slate-100">
                     <td className="px-3 py-2">
                       <div className="font-medium">{row.homeLabel}</div>
                       <div className="text-slate-600">{row.homeAddress}</div>

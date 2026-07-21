@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getCommuteWeekdays, getPairWeekdays } from "@/components/setup/commute-days";
 import { DirectionScheduleEditor } from "@/components/setup/DirectionScheduleEditor";
+import {
+  RouteWaypointEditor,
+  RouteWaypointSummary,
+} from "@/components/setup/RouteWaypointEditor";
 import type { TrackedPairData } from "@/components/setup/types";
 import { WeekdaySelector } from "@/components/setup/WeekdaySelector";
 import {
@@ -122,10 +126,22 @@ export function CommuteRouteCard({ group }: { group: CommuteRouteGroup<TrackedPa
               <p>
                 <span className="font-medium text-slate-700">Morning:</span>{" "}
                 {slotSummary(group.toWorkPair)}
+                {group.toWorkPair && (
+                  <>
+                    {" "}
+                    · <RouteWaypointSummary pair={group.toWorkPair} inline />
+                  </>
+                )}
               </p>
               <p>
                 <span className="font-medium text-slate-700">Evening:</span>{" "}
                 {slotSummary(group.fromWorkPair)}
+                {group.fromWorkPair && (
+                  <>
+                    {" "}
+                    · <RouteWaypointSummary pair={group.fromWorkPair} inline />
+                  </>
+                )}
               </p>
             </div>
           )}
@@ -153,18 +169,24 @@ export function CommuteRouteCard({ group }: { group: CommuteRouteGroup<TrackedPa
           <WeekdaySelector selected={draftDays} onChange={setDraftDays} disabled={saving} />
           <div className="grid gap-3 md:grid-cols-2">
             {group.toWorkPair && (
-              <DirectionScheduleEditor
-                label="Morning"
-                pair={group.toWorkPair}
-                onError={setSlotError}
-              />
+              <div className="space-y-3">
+                <DirectionScheduleEditor
+                  label="Morning"
+                  pair={group.toWorkPair}
+                  onError={setSlotError}
+                />
+                <RouteWaypointEditor pair={group.toWorkPair} onError={setSlotError} />
+              </div>
             )}
             {group.fromWorkPair && (
-              <DirectionScheduleEditor
-                label="Evening"
-                pair={group.fromWorkPair}
-                onError={setSlotError}
-              />
+              <div className="space-y-3">
+                <DirectionScheduleEditor
+                  label="Evening"
+                  pair={group.fromWorkPair}
+                  onError={setSlotError}
+                />
+                <RouteWaypointEditor pair={group.fromWorkPair} onError={setSlotError} />
+              </div>
             )}
           </div>
         </div>
@@ -257,6 +279,7 @@ export function DirectionPairCard({ pair }: { pair: TrackedPairData }) {
               </>
             )}
           </p>
+          {!editing && <RouteWaypointSummary pair={pair} />}
         </div>
         <div className="flex gap-3 text-sm">
           <button
@@ -280,6 +303,7 @@ export function DirectionPairCard({ pair }: { pair: TrackedPairData }) {
         <div className="mt-3 space-y-3">
           <WeekdaySelector selected={draftDays} onChange={setDraftDays} disabled={saving} />
           <DirectionScheduleEditor label="Schedule" pair={pair} onError={setSlotError} />
+          <RouteWaypointEditor pair={pair} onError={setSlotError} />
         </div>
       )}
       {dayError && <p className="mt-2 text-sm text-red-600">{dayError}</p>}

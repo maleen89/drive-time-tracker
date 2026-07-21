@@ -21,7 +21,9 @@ export default async function SetupPage() {
       <div>
         <h1 className="text-2xl font-semibold">Setup</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Manage locations and configure tracked commute pairs with per-pair schedules.
+          Manage locations and configure tracked commute pairs with per-pair schedules. For an
+          alternate route (e.g. via an expressway), add a second home location with the same
+          address and a distinct label, then set route waypoints on that commute.
         </p>
       </div>
       <SetupPanel locations={locations} pairs={pairs} />

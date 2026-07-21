@@ -18,6 +18,7 @@ type PairWithMeasurements = {
 };
 
 export interface HomeCommuteRow {
+  homeId: string;
   homeAddress: string;
   homeLabel: string;
   morning: MeasurementSummary | null;
@@ -29,27 +30,35 @@ export function buildHomeCommuteRows(pairs: PairWithMeasurements[]): HomeCommute
   const toWorkPairs = pairs.filter((pair) => getCommuteDirection(pair) === "to_work");
   const fromWorkPairs = pairs.filter((pair) => getCommuteDirection(pair) === "from_work");
 
-  return toWorkPairs.flatMap((morningPair) => {
-    const home = homeLocation(morningPair);
-    if (!home) return [];
+  return toWorkPairs
+    .flatMap((morningPair) => {
+      const home = homeLocation(morningPair);
+      if (!home) return [];
 
-    const eveningPair = fromWorkPairs.find(
-      (pair) => homeLocation(pair)?.id === home.id,
-    );
+      const eveningPair = fromWorkPairs.find(
+        (pair) => homeLocation(pair)?.id === home.id,
+      );
 
-    const morning = morningPair.measurements[0] ?? null;
-    const evening = eveningPair?.measurements[0] ?? null;
+      const morning = morningPair.measurements[0] ?? null;
+      const evening = eveningPair?.measurements[0] ?? null;
 
-    return [
-      {
-        homeAddress: home.address,
-        homeLabel: home.label,
-        morning,
-        evening,
-        distanceMeters: morning?.distanceMeters ?? evening?.distanceMeters ?? null,
-      },
-    ];
-  });
+      return [
+        {
+          homeId: home.id,
+          homeAddress: home.address,
+          homeLabel: home.label,
+          morning,
+          evening,
+          distanceMeters: morning?.distanceMeters ?? evening?.distanceMeters ?? null,
+        },
+      ];
+    })
+    .sort((a, b) => {
+      const aDistance = a.distanceMeters ?? Number.POSITIVE_INFINITY;
+      const bDistance = b.distanceMeters ?? Number.POSITIVE_INFINITY;
+      if (aDistance !== bDistance) return aDistance - bDistance;
+      return a.homeLabel.localeCompare(b.homeLabel);
+    });
 }
 
 export function formatMeasurementDuration(measurement: MeasurementSummary | null): string {
