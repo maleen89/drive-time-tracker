@@ -8,27 +8,21 @@ import {
   getLocalDateKey,
   getZonedParts,
   parseTimeLocal,
+  zonedDateTimeToUtc,
 } from "@/lib/time";
 
 export type CommuteDirectionFilter = "morning" | "evening";
 
-export type SummaryColumn =
-  | { id: string; kind: "latest"; direction: CommuteDirectionFilter }
-  | { id: string; kind: "previous_day_same_slot"; direction: CommuteDirectionFilter }
-  | {
-      id: string;
-      kind: "slot";
-      direction: CommuteDirectionFilter;
-      date: string;
-      timeLocal: string;
-    };
+export const SUMMARY_WEEKDAY_NUMBERS = [1, 2, 3, 4, 5, 6] as const;
 
-export const DEFAULT_SUMMARY_COLUMNS: SummaryColumn[] = [
-  { id: "default-latest-morning", kind: "latest", direction: "morning" },
-  { id: "default-prev-morning", kind: "previous_day_same_slot", direction: "morning" },
-  { id: "default-latest-evening", kind: "latest", direction: "evening" },
-  { id: "default-prev-evening", kind: "previous_day_same_slot", direction: "evening" },
-];
+export const SUMMARY_WEEKDAY_LABELS: Record<number, string> = {
+  1: "Mon",
+  2: "Tue",
+  3: "Wed",
+  4: "Thu",
+  5: "Fri",
+  6: "Sat",
+};
 
 export type SummaryMeasurement = {
   id: string;
@@ -48,17 +42,15 @@ export type SummaryRow = {
   measurements: SummaryMeasurement[];
 };
 
-export type SummaryColumnHeaderParts = {
-  dateLine: string;
-  timeLine: string | null;
-};
-
-export type SummarySlotOption = {
+export type SummaryTimeOption = {
   key: string;
   direction: CommuteDirectionFilter;
-  date: string;
   timeLocal: string;
-  scheduledDepartureAt: string;
+  label: string;
+};
+
+export type SummaryWeekOption = {
+  key: string;
   label: string;
 };
 
@@ -94,21 +86,73 @@ export function getMeasurementBinnedTime(measurement: SummaryMeasurement): strin
   return `${String(parts.hour).padStart(2, "0")}:${String(binMinutesToTen(parts.minute)).padStart(2, "0")}`;
 }
 
-function formatDateLine(date: Date): string {
-  const parts = getZonedParts(date, DEFAULT_TIMEZONE);
-  const weekday = new Intl.DateTimeFormat("en-US", {
-    timeZone: DEFAULT_TIMEZONE,
-    weekday: "short",
-  }).format(date);
-  return `${weekday} ${parts.month}/${parts.day}`;
+function dateKeyFromParts(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-function formatDateLineFromKey(dateKey: string): string {
+function parseDateKey(dateKey: string): { year: number; month: number; day: number } | null {
   const [year, month, day] = dateKey.split("-").map(Number);
-  if (!year || !month || !day) return dateKey;
-  const anchor = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-  return formatDateLine(anchor);
+  if (!year || !month || !day) return null;
+  return { year, month, day };
 }
+
+export function getWeekMondayDateKey(date: Date, timeZone = DEFAULT_TIMEZONE): string {
+  const parts = getZonedParts(date, timeZone);
+  const mondayParts = addDaysInTimeZone(date, -(parts.weekday - 1), timeZone);
+  return dateKeyFromParts(mondayParts.year, mondayParts.month, mondayParts.day);
+}
+
+export function getWeekDayDateKeys(mondayDateKey: string, timeZone = DEFAULT_TIMEZONE): string[] {
+  const parsed = parseDateKey(mondayDateKey);
+  if (!parsed) return [];
+
+  const mondayAnchor = zonedDateTimeToUtc(parsed.year, parsed.month, parsed.day, 12, 0, timeZone);
+
+  return Array.from({ length: 6 }, (_, offset) => {
+    const parts = addDaysInTimeZone(mondayAnchor, offset, timeZone);
+    return dateKeyFromParts(parts.year, parts.month, parts.day);
+  });
+}
+
+function formatShortDateFromKey(dateKey: string): string {
+  const parsed = parseDateKey(dateKey);
+  if (!parsed) return dateKey;
+  return `${parsed.month}/${parsed.day}`;
+}
+
+export function formatWeekRangeLabel(mondayDateKey: string): string {
+  const dayKeys = getWeekDayDateKeys(mondayDateKey);
+  if (dayKeys.length === 0) return mondayDateKey;
+
+  const monday = formatShortDateFromKey(dayKeys[0]!);
+  const saturday = formatShortDateFromKey(dayKeys[dayKeys.length - 1]!);
+  const mondayParsed = parseDateKey(dayKeys[0]!);
+  const monthName = mondayParsed
+    ? new Intl.DateTimeFormat("en-US", { month: "short" }).format(
+        zonedDateTimeToUtc(mondayParsed.year, mondayParsed.month, 1, 12, 0, DEFAULT_TIMEZONE),
+      )
+    : "";
+
+  return `${monthName} ${monday}–${saturday}`;
+}
+
+export function formatWeekDayColumnHeader(dateKey: string): { weekday: string; dateLine: string } {
+  const parsed = parseDateKey(dateKey);
+  if (!parsed) {
+    return { weekday: "—", dateLine: dateKey };
+  }
+
+  const parts = getZonedParts(
+    zonedDateTimeToUtc(parsed.year, parsed.month, parsed.day, 12, 0, DEFAULT_TIMEZONE),
+    DEFAULT_TIMEZONE,
+  );
+
+  return {
+    weekday: SUMMARY_WEEKDAY_LABELS[parts.weekday] ?? "—",
+    dateLine: formatShortDateFromKey(dateKey),
+  };
+}
+
 function toSummaryMeasurement(
   measurement: MeasurementRecord,
   direction: CommuteDirectionFilter,
@@ -172,126 +216,120 @@ export function buildSummaryRows(pairs: PairWithMeasurements[]): SummaryRow[] {
     });
 }
 
-function measurementsForDirection(
-  row: SummaryRow,
-  direction: CommuteDirectionFilter,
-): SummaryMeasurement[] {
-  return row.measurements.filter((measurement) => measurement.direction === direction);
-}
-
-function findByDateAndBinnedSlot(
-  measurements: SummaryMeasurement[],
+export function buildMeasurementLookupKey(
+  homeId: string,
   dateKey: string,
+  direction: CommuteDirectionFilter,
   binnedTimeLocal: string,
-): SummaryMeasurement | null {
-  return (
-    measurements.find(
-      (measurement) =>
-        getMeasurementBinnedTime(measurement) === binnedTimeLocal &&
-        getLocalDateKey(new Date(measurement.scheduledDepartureAt), DEFAULT_TIMEZONE) === dateKey,
-    ) ?? null
-  );
+): string {
+  return `${homeId}:${dateKey}:${direction}:${binnedTimeLocal}`;
 }
 
-export function resolveSummaryColumnMeasurement(
-  row: SummaryRow,
-  column: SummaryColumn,
-): SummaryMeasurement | null {
-  const directionMeasurements = measurementsForDirection(row, column.direction);
-
-  if (column.kind === "latest") {
-    return directionMeasurements[0] ?? null;
-  }
-
-  if (column.kind === "previous_day_same_slot") {
-    const latest = directionMeasurements[0];
-    if (!latest) return null;
-
-    const binnedTime = getMeasurementBinnedTime(latest);
-    const previousDay = addDaysInTimeZone(new Date(latest.scheduledDepartureAt), -1, DEFAULT_TIMEZONE);
-    const previousDateKey = `${previousDay.year}-${String(previousDay.month).padStart(2, "0")}-${String(previousDay.day).padStart(2, "0")}`;
-    return findByDateAndBinnedSlot(directionMeasurements, previousDateKey, binnedTime);
-  }
-
-  return findByDateAndBinnedSlot(
-    directionMeasurements,
-    column.date,
-    binTimeLocalToTenMinutes(column.timeLocal),
-  );
-}
-
-function headerPartsFromMeasurement(measurement: SummaryMeasurement): SummaryColumnHeaderParts {
-  return {
-    dateLine: formatDateLine(new Date(measurement.scheduledDepartureAt)),
-    timeLine: getMeasurementBinnedTime(measurement),
-  };
-}
-
-function headerPartsFromDateAndTime(dateKey: string, timeLocal: string): SummaryColumnHeaderParts {
-  return {
-    dateLine: formatDateLineFromKey(dateKey),
-    timeLine: binTimeLocalToTenMinutes(timeLocal),
-  };
-}
-
-function getLeftColumnTimeLine(
-  column: SummaryColumn,
-  columns: SummaryColumn[],
-  rows: SummaryRow[],
-): string | null {
-  const index = columns.findIndex((entry) => entry.id === column.id);
-  if (index <= 0) return null;
-
-  const leftColumn = columns[index - 1];
-  return formatSummaryColumnHeaderParts(leftColumn, columns, rows).timeLine;
-}
-
-export function formatSummaryColumnHeaderParts(
-  column: SummaryColumn,
-  columns: SummaryColumn[],
-  rows: SummaryRow[],
-): SummaryColumnHeaderParts {
-  if (column.kind === "slot") {
-    return headerPartsFromDateAndTime(column.date, column.timeLocal);
-  }
-
-  if (column.kind === "previous_day_same_slot") {
-    for (const row of rows) {
-      const measurement = resolveSummaryColumnMeasurement(row, column);
-      if (measurement) {
-        return {
-          dateLine: formatDateLine(new Date(measurement.scheduledDepartureAt)),
-          timeLine: getLeftColumnTimeLine(column, columns, rows),
-        };
-      }
-    }
-
-    return {
-      dateLine: "—",
-      timeLine: getLeftColumnTimeLine(column, columns, rows),
-    };
-  }
+export function buildMeasurementLookup(rows: SummaryRow[]): Map<string, SummaryMeasurement> {
+  const lookup = new Map<string, SummaryMeasurement>();
 
   for (const row of rows) {
-    const measurement = resolveSummaryColumnMeasurement(row, column);
-    if (measurement) {
-      return headerPartsFromMeasurement(measurement);
+    for (const measurement of row.measurements) {
+      const dateKey = getLocalDateKey(new Date(measurement.scheduledDepartureAt), DEFAULT_TIMEZONE);
+      const binnedTime = getMeasurementBinnedTime(measurement);
+      lookup.set(
+        buildMeasurementLookupKey(row.homeId, dateKey, measurement.direction, binnedTime),
+        measurement,
+      );
     }
   }
 
-  return {
-    dateLine: column.direction === "morning" ? "Morning" : "Evening",
-    timeLine: null,
-  };
+  return lookup;
 }
 
-export function formatSummaryColumnHeader(
-  column: SummaryColumn,
-  columns: SummaryColumn[],
-  rows: SummaryRow[],
+export function findMeasurementInLookup(
+  lookup: Map<string, SummaryMeasurement>,
+  row: SummaryRow,
+  dateKey: string,
+  direction: CommuteDirectionFilter,
+  binnedTimeLocal: string,
+): SummaryMeasurement | null {
+  return lookup.get(buildMeasurementLookupKey(row.homeId, dateKey, direction, binnedTimeLocal)) ?? null;
+}
+
+export function buildTimeOptionKey(
+  direction: CommuteDirectionFilter,
+  timeLocal: string,
 ): string {
-  const { dateLine, timeLine } = formatSummaryColumnHeaderParts(column, columns, rows);
-  return timeLine ? `${dateLine} · ${timeLine}` : dateLine;
+  return `${direction}:${binTimeLocalToTenMinutes(timeLocal)}`;
+}
+
+export function parseTimeOptionKey(key: string): { direction: CommuteDirectionFilter; timeLocal: string } | null {
+  const separator = key.indexOf(":");
+  if (separator === -1) return null;
+
+  const direction = key.slice(0, separator);
+  const timeLocal = key.slice(separator + 1);
+  if ((direction !== "morning" && direction !== "evening") || !timeLocal) {
+    return null;
+  }
+  return { direction, timeLocal: binTimeLocalToTenMinutes(timeLocal) };
+}
+
+export function collectAvailableTimeOptions(rows: SummaryRow[]): SummaryTimeOption[] {
+  const seen = new Set<string>();
+  const options: SummaryTimeOption[] = [];
+
+  for (const row of rows) {
+    for (const measurement of row.measurements) {
+      const binnedTime = getMeasurementBinnedTime(measurement);
+      const key = buildTimeOptionKey(measurement.direction, binnedTime);
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      const directionLabel = measurement.direction === "morning" ? "AM" : "PM";
+      options.push({
+        key,
+        direction: measurement.direction,
+        timeLocal: binnedTime,
+        label: `${binnedTime} (${directionLabel})`,
+      });
+    }
+  }
+
+  return options.sort((a, b) => {
+    if (a.direction !== b.direction) {
+      return a.direction === "morning" ? -1 : 1;
+    }
+    return a.timeLocal.localeCompare(b.timeLocal);
+  });
+}
+
+export function collectAvailableWeekOptions(rows: SummaryRow[]): SummaryWeekOption[] {
+  const seen = new Set<string>();
+
+  for (const row of rows) {
+    for (const measurement of row.measurements) {
+      seen.add(getWeekMondayDateKey(new Date(measurement.scheduledDepartureAt)));
+    }
+  }
+
+  seen.add(getWeekMondayDateKey(new Date()));
+
+  return [...seen]
+    .sort((a, b) => b.localeCompare(a))
+    .map((key) => ({
+      key,
+      label: formatWeekRangeLabel(key),
+    }));
+}
+
+export function pickDefaultTimeKey(rows: SummaryRow[]): string {
+  const options = collectAvailableTimeOptions(rows);
+  if (options.length === 0) return "";
+
+  const morning = options.find((option) => option.direction === "morning");
+  return morning?.key ?? options[0]!.key;
+}
+
+export function pickDefaultWeekKey(rows: SummaryRow[]): string {
+  const options = collectAvailableWeekOptions(rows);
+  return options[0]?.key ?? getWeekMondayDateKey(new Date());
 }
 
 export function formatMeasurementDuration(measurement: SummaryMeasurement | null): string {
@@ -306,153 +344,4 @@ export function formatMeasurementTooltip(measurement: SummaryMeasurement | null)
 
 export function formatRowDistance(distanceMeters: number | null): string {
   return formatDistance(distanceMeters);
-}
-
-export function collectAvailableSlotOptions(rows: SummaryRow[]): SummarySlotOption[] {
-  const seen = new Set<string>();
-  const options: SummarySlotOption[] = [];
-
-  for (const row of rows) {
-    for (const measurement of row.measurements) {
-      const date = getLocalDateKey(new Date(measurement.scheduledDepartureAt), DEFAULT_TIMEZONE);
-      const timeLocal = getMeasurementBinnedTime(measurement);
-      const key = `${measurement.direction}:${date}:${timeLocal}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-
-      const dateLine = formatDateLine(new Date(measurement.scheduledDepartureAt));
-      const directionLabel = measurement.direction === "morning" ? "AM" : "PM";
-      options.push({
-        key,
-        direction: measurement.direction,
-        date,
-        timeLocal,
-        scheduledDepartureAt: measurement.scheduledDepartureAt,
-        label: `${dateLine} ${timeLocal} (${directionLabel})`,
-      });
-    }
-  }
-
-  return options.sort(
-    (a, b) =>
-      new Date(b.scheduledDepartureAt).getTime() - new Date(a.scheduledDepartureAt).getTime(),
-  );
-}
-
-export function parseStoredSummaryColumns(value: unknown): SummaryColumn[] {
-  if (!Array.isArray(value)) return DEFAULT_SUMMARY_COLUMNS;
-
-  const parsed = value
-    .map((entry) => parseSummaryColumn(entry))
-    .filter((entry): entry is SummaryColumn => entry != null);
-
-  return parsed.length > 0 ? parsed : DEFAULT_SUMMARY_COLUMNS;
-}
-
-function parseSummaryColumn(value: unknown): SummaryColumn | null {
-  if (!value || typeof value !== "object") return null;
-  const column = value as Partial<SummaryColumn> & { kind?: string; direction?: string };
-  if (typeof column.id !== "string" || !column.id) return null;
-  if (column.direction !== "morning" && column.direction !== "evening") return null;
-
-  if (column.kind === "latest" || column.kind === "previous_day_same_slot") {
-    return { id: column.id, kind: column.kind, direction: column.direction };
-  }
-
-  if (column.kind === "slot") {
-    const slotColumn = column as Partial<Extract<SummaryColumn, { kind: "slot" }>>;
-    if (typeof slotColumn.date !== "string" || typeof slotColumn.timeLocal !== "string") {
-      return null;
-    }
-    return {
-      id: column.id,
-      kind: "slot",
-      direction: column.direction,
-      date: slotColumn.date,
-      timeLocal: slotColumn.timeLocal,
-    };
-  }
-
-  return null;
-}
-
-function createUniqueColumnSuffix(): string {
-  try {
-    if (typeof globalThis.crypto?.randomUUID === "function") {
-      return globalThis.crypto.randomUUID();
-    }
-  } catch {
-    // randomUUID throws outside secure contexts (e.g. http://136.66.54.114).
-  }
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-export function createSlotSummaryColumn(
-  direction: CommuteDirectionFilter,
-  date: string,
-  timeLocal: string,
-): SummaryColumn {
-  const binnedTime = binTimeLocalToTenMinutes(timeLocal);
-  return {
-    id: `slot-${direction}-${date}-${binnedTime}-${createUniqueColumnSuffix()}`,
-    kind: "slot",
-    direction,
-    date,
-    timeLocal: binnedTime,
-  };
-}
-
-export const PENDING_SUMMARY_COLUMN_KEY = "drive-time-tracker-pending-summary-column";
-
-export type PendingSummaryColumn = {
-  direction: CommuteDirectionFilter;
-  date: string;
-  timeLocal: string;
-};
-
-export function getBinnedTimeFromDate(date: Date): string {
-  const parts = getZonedParts(date, DEFAULT_TIMEZONE);
-  return `${String(parts.hour).padStart(2, "0")}:${String(binMinutesToTen(parts.minute)).padStart(2, "0")}`;
-}
-
-export function queuePendingSummaryColumn(
-  direction: CommuteDirectionFilter,
-  date = getLocalDateKey(new Date(), DEFAULT_TIMEZONE),
-  timeLocal = getBinnedTimeFromDate(new Date()),
-): void {
-  if (typeof window === "undefined") return;
-  const payload: PendingSummaryColumn = { direction, date, timeLocal };
-  window.sessionStorage.setItem(PENDING_SUMMARY_COLUMN_KEY, JSON.stringify(payload));
-}
-
-export function takePendingSummaryColumn(): PendingSummaryColumn | null {
-  if (typeof window === "undefined") return null;
-  const raw = window.sessionStorage.getItem(PENDING_SUMMARY_COLUMN_KEY);
-  if (!raw) return null;
-  window.sessionStorage.removeItem(PENDING_SUMMARY_COLUMN_KEY);
-  try {
-    const parsed = JSON.parse(raw) as PendingSummaryColumn;
-    if (
-      (parsed.direction === "morning" || parsed.direction === "evening") &&
-      typeof parsed.date === "string" &&
-      typeof parsed.timeLocal === "string"
-    ) {
-      return parsed;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
-export function columnAlreadyExists(columns: SummaryColumn[], candidate: SummaryColumn): boolean {
-  return columns.some((column) => {
-    if (column.kind !== candidate.kind || column.direction !== candidate.direction) {
-      return false;
-    }
-    if (column.kind === "slot" && candidate.kind === "slot") {
-      return column.date === candidate.date && column.timeLocal === candidate.timeLocal;
-    }
-    return true;
-  });
 }

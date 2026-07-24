@@ -2,11 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import {
-  getBinnedTimeFromDate,
-  queuePendingSummaryColumn,
-} from "@/lib/home-commute-summary";
-import { DEFAULT_TIMEZONE, getLocalDateKey } from "@/lib/time";
 
 type ManualPeriod = "morning" | "afternoon";
 
@@ -56,16 +51,8 @@ export function RunNowButton() {
 
       const label = period === "morning" ? "Morning" : "Evening";
       setStatus(
-        `${label}: ${data.created ?? 0} created, ${data.skipped ?? 0} skipped, ${data.errors ?? 0} errors. Check the newest column in Commute summary.`,
+        `${label}: ${data.created ?? 0} created, ${data.skipped ?? 0} skipped, ${data.errors ?? 0} errors.`,
       );
-
-      if ((data.created ?? 0) > 0) {
-        queuePendingSummaryColumn(
-          period === "morning" ? "morning" : "evening",
-          getLocalDateKey(new Date(), DEFAULT_TIMEZONE),
-          getBinnedTimeFromDate(new Date()),
-        );
-      }
 
       if (data.errors && data.errors > 0) {
         const firstError = data.details?.find((d) => d.status !== "OK");
