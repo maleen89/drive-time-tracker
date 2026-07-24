@@ -376,6 +376,17 @@ function parseSummaryColumn(value: unknown): SummaryColumn | null {
   return null;
 }
 
+function createUniqueColumnSuffix(): string {
+  try {
+    if (typeof globalThis.crypto?.randomUUID === "function") {
+      return globalThis.crypto.randomUUID();
+    }
+  } catch {
+    // randomUUID throws outside secure contexts (e.g. http://136.66.54.114).
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function createSlotSummaryColumn(
   direction: CommuteDirectionFilter,
   date: string,
@@ -383,7 +394,7 @@ export function createSlotSummaryColumn(
 ): SummaryColumn {
   const binnedTime = binTimeLocalToTenMinutes(timeLocal);
   return {
-    id: `slot-${direction}-${date}-${binnedTime}-${crypto.randomUUID()}`,
+    id: `slot-${direction}-${date}-${binnedTime}-${createUniqueColumnSuffix()}`,
     kind: "slot",
     direction,
     date,
