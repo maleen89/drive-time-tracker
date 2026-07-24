@@ -15,6 +15,7 @@ if [[ ! -f /etc/drive-time-tracker.env ]]; then
 fi
 
 sudo -u "$APP_USER" git -C "$APP_DIR" pull --ff-only
+chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 sudo -u "$APP_USER" bash -lc "cd '$APP_DIR' && npm ci && npm run build"
 
 # Standalone build layout: static assets must sit beside server.js
@@ -24,6 +25,7 @@ if [[ -d "$APP_DIR/public" ]]; then
   cp -r "$APP_DIR/public/." "$APP_DIR/.next/standalone/public/"
 fi
 cp -r "$APP_DIR/.next/static" "$APP_DIR/.next/standalone/.next/static"
+chown -R "$APP_USER:$APP_USER" "$APP_DIR/.next/standalone"
 
 systemctl restart drive-time-tracker
 systemctl --no-pager status drive-time-tracker

@@ -1,14 +1,10 @@
 import Link from "next/link";
+import { CommuteSummaryTable } from "@/components/CommuteSummaryTable";
 import { NextRunCountdown } from "@/components/NextRunCountdown";
 import { RunNowButton } from "@/components/RunNowButton";
 import { prisma } from "@/lib/db";
 import { isBuiltinSchedulerEnabled } from "@/lib/builtin-scheduler";
-import {
-  buildHomeCommuteRows,
-  formatMeasurementDuration,
-  formatMeasurementTooltip,
-  formatRowDistance,
-} from "@/lib/home-commute-summary";
+import { buildSummaryRows } from "@/lib/home-commute-summary";
 import { measurementDetailHref } from "@/lib/measurement-navigation";
 import { buildScheduleInputs, getNextScheduleRun } from "@/lib/schedule-utils";
 import { pairLabel } from "@/lib/tracked-pairs";
@@ -26,8 +22,9 @@ export default async function DashboardPage() {
         scheduleSlots: { where: { active: true } },
         measurements: {
           where: { status: "OK" },
-          orderBy: { createdAt: "desc" },
-          take: 1,
+          orderBy: { scheduledDepartureAt: "desc" },
+          take: 120,
+          include: { pairScheduleSlot: true },
         },
       },
     }),
@@ -47,7 +44,7 @@ export default async function DashboardPage() {
   const scheduleInputs = buildScheduleInputs(pairs);
   const nextRun = getNextScheduleRun(scheduleInputs);
   const schedulerEnabled = isBuiltinSchedulerEnabled();
-  const homeRows = buildHomeCommuteRows(pairs);
+  const summaryRows = buildSummaryRows(pairs);
   const activeSlotCount = pairs.reduce((sum, pair) => sum + pair.scheduleSlots.length, 0);
 
   return (
@@ -80,67 +77,7 @@ export default async function DashboardPage() {
         <div className="border-b border-slate-100 px-4 py-3">
           <h2 className="font-medium">Commute summary</h2>
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-600">
-              <tr>
-                <th className="px-3 py-2 font-medium">Address</th>
-                <th className="px-3 py-2 font-medium">Latest morning drive time</th>
-                <th className="px-3 py-2 font-medium">Latest evening drive time</th>
-                <th className="px-3 py-2 font-medium">Distance</th>
-              </tr>
-            </thead>
-            <tbody>
-              {homeRows.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-slate-500">
-                    No home → work pairs yet.{" "}
-                    <Link href="/setup" className="underline">
-                      Configure setup
-                    </Link>
-                    .
-                  </td>
-                </tr>
-              ) : (
-                homeRows.map((row) => (
-                  <tr key={row.homeId} className="border-t border-slate-100">
-                    <td className="px-3 py-2">
-                      <div className="font-medium">{row.homeLabel}</div>
-                      <div className="text-slate-600">{row.homeAddress}</div>
-                    </td>
-                    <td className="px-3 py-2">
-                      {row.morning ? (
-                        <Link
-                          href={measurementDetailHref(row.morning.id, "/")}
-                          className="text-blue-600 hover:text-blue-700 hover:underline"
-                          title={formatMeasurementTooltip(row.morning)}
-                        >
-                          {formatMeasurementDuration(row.morning)}
-                        </Link>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      {row.evening ? (
-                        <Link
-                          href={measurementDetailHref(row.evening.id, "/")}
-                          className="text-blue-600 hover:text-blue-700 hover:underline"
-                          title={formatMeasurementTooltip(row.evening)}
-                        >
-                          {formatMeasurementDuration(row.evening)}
-                        </Link>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-3 py-2">{formatRowDistance(row.distanceMeters)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <CommuteSummaryTable rows={summaryRows} />
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white">
